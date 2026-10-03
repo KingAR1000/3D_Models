@@ -1,0 +1,59 @@
+name: Download GLB files
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  download-and-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Create assets directory
+        run: mkdir -p assets
+
+      - name: Download GLB files
+        run: |
+          set -e
+
+          curl -fL --retry 3 --retry-delay 5 \
+            "https://files.catbox.moe/yipg2g.glb" \
+            -o "assets/yipg2g.glb"
+
+          curl -fL --retry 3 --retry-delay 5 \
+            "https://files.catbox.moe/3e9xlf.glb" \
+            -o "assets/3e9xlf.glb"
+
+      - name: Verify downloaded files
+        run: |
+          set -e
+
+          test -s assets/yipg2g.glb
+          test -s assets/3e9xlf.glb
+
+          echo "Downloaded files:"
+          ls -lh assets/*.glb
+
+      - name: Commit and push changes
+        run: |
+          set -e
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add assets/yipg2g.glb assets/3e9xlf.glb
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Add downloaded GLB files"
+          git push
