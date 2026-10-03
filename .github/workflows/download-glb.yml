@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -20,26 +20,67 @@ jobs:
         run: mkdir -p assets
 
       - name: Download GLB files
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
-          curl -fL --retry 3 --retry-delay 5 \
+          download_file() {
+            local url="$1"
+            local output="$2"
+
+            echo "Downloading:"
+            echo "  $url"
+            echo "  -> $output"
+
+            for attempt in 1 2 3 4 5; do
+              echo "Attempt $attempt/5..."
+
+              if curl \
+                --fail \
+                --location \
+                --retry 3 \
+                --retry-delay 5 \
+                --connect-timeout 30 \
+                --max-time 600 \
+                --user-agent "Mozilla/5.0" \
+                "$url" \
+                --output "$output"; then
+
+                if [ -s "$output" ]; then
+                  echo "Download successful."
+                  return 0
+                fi
+              fi
+
+              echo "Download failed. Waiting before retry..."
+              rm -f "$output"
+              sleep 10
+            done
+
+            echo "ERROR: Failed to download $url"
+            return 1
+          }
+
+          download_file \
             "https://files.catbox.moe/yipg2g.glb" \
-            -o "assets/yipg2g.glb"
+            "assets/yipg2g.glb"
 
-          curl -fL --retry 3 --retry-delay 5 \
+          download_file \
             "https://files.catbox.moe/3e9xlf.glb" \
-            -o "assets/3e9xlf.glb"
+            "assets/3e9xlf.glb"
 
       - name: Verify downloaded files
         run: |
           set -e
 
+          echo "Downloaded files:"
+          ls -lh assets/
+
           test -s assets/yipg2g.glb
           test -s assets/3e9xlf.glb
 
-          echo "Downloaded files:"
-          ls -lh assets/*.glb
+          echo "File sizes:"
+          du -h assets/*.glb
 
       - name: Commit and push changes
         run: |
